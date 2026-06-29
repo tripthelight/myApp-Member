@@ -1,0 +1,37 @@
+name: myapp-member-green
+
+services:
+  member-green-1:
+    image: ${IMAGE_NAME:?IMAGE_NAME is required}:${IMAGE_TAG:?IMAGE_TAG is required}
+    container_name: myapp-member-green-1
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      APP_COLOR: green
+      SERVER_NAME: member_green_1
+      DISPLAY_SERVER_ADDRESS: myapp-member-green-1
+      SERVER_PORT: 8080
+    expose:
+      - "8080"
+    networks:
+      - myapp-network
+
+  member-green-2:
+    image: ${IMAGE_NAME:?IMAGE_NAME is required}:${IMAGE_TAG:?IMAGE_TAG is required}
+    container_name: myapp-member-green-2
+    restart: unless-stopped
+    stop_grace_period: 30s
+    environment:
+      APP_COLOR: green
+      SERVER_NAME: member_green_2
+      DISPLAY_SERVER_ADDRESS: myapp-member-green-2
+      SERVER_PORT: 8080
+    expose:
+      - "8080"
+    networks:
+      - myapp-network
+
+networks:
+  myapp-network:
+    external: true
+    name: myapp-network
