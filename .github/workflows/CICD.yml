@@ -36,11 +36,86 @@ jobs:
           docker inspect myapp-nginx >/dev/null
 
       - name: Build and deploy Member without downtime
+        id: deploy
         env:
           IMAGE_NAME: myapp-member
           IMAGE_TAG: ${{ github.sha }}
           MYAPP_INFRA_DIR: /home/um/myApp-Infra
+          DEPLOY_LOG_DIR: /home/um/myapp-deploy-logs/member
           DRAIN_SECONDS: '10'
+          STABILIZATION_SECONDS: '30'
+          CHECK_INTERVAL_SECONDS: '2'
         run: |
           chmod +x mvnw scripts/*.sh
           ./scripts/deploy-local.sh
+
+      - name: Write deployment summary
+        if: always()
+        shell: bash
+        env:
+          DEPLOY_STATUS: ${{ steps.deploy.outputs.deployment_status }}
+          PREVIOUS_COLOR: ${{ steps.deploy.outputs.previous_color }}
+          TARGET_COLOR: ${{ steps.deploy.outputs.target_color }}
+          DEPLOY_LOG_FILE: ${{ steps.deploy.outputs.log_file }}
+        run: |
+          {
+            echo "## Member deployment"
+            echo
+            echo "| Item | Value |"
+            echo "| --- | --- |"
+            echo "| Result | ${DEPLOY_STATUS:-FAILED} |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Actor | \`${GITHUB_ACTOR}\` |"
+            echo "| Transition | \`${PREVIOUS_COLOR:-unknown} -> ${TARGET_COLOR:-unknown}\` |"
+            echo "| Server log | \`${DEPLOY_LOG_FILE:-not-created}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Send Slack deployment notification
+        if: always()
+        continue-on-error: true
+        shell: bash
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          PREVIOUS_COLOR: ${{ steps.deploy.outputs.previous_color }}
+          TARGET_COLOR: ${{ steps.deploy.outputs.target_color }}
+          DEPLOY_LOG_FILE: ${{ steps.deploy.outputs.log_file }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL is not configured. Skipping Slack notification."
+            exit 0
+          fi
+
+          if [ "$DEPLOY_OUTCOME" = "success" ]; then
+            RESULT="SUCCESS"
+          else
+            RESULT="FAILED"
+          fi
+
+          payload=$(printf '{"text":"[myApp-Member] Deployment %s\\nTransition: %s -> %s\\nCommit: %s\\nActor: %s\\nActions: %s/%s/actions/runs/%s\\nServer log: %s"}' \
+            "$RESULT" \
+            "${PREVIOUS_COLOR:-unknown}" \
+            "${TARGET_COLOR:-unknown}" \
+            "$GITHUB_SHA" \
+            "$GITHUB_ACTOR" \
+            "$GITHUB_SERVER_URL" \
+            "$GITHUB_REPOSITORY" \
+            "$GITHUB_RUN_ID" \
+            "${DEPLOY_LOG_FILE:-not-created}")
+
+          curl --fail-with-body --silent --show-error \
+            --retry 3 \
+            --max-time 10 \
+            -X POST \
+            -H 'Content-Type: application/json' \
+            --data "$payload" \
+            "$SLACK_WEBHOOK_URL"
+
+      - name: Upload deployment log
+        if: always() && steps.deploy.outputs.log_file != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: member-deploy-log-${{ github.run_id }}
+          path: ${{ steps.deploy.outputs.log_file }}
+          if-no-files-found: warn
+          retention-days: 30
