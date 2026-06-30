@@ -35,6 +35,20 @@ jobs:
           docker network inspect myapp-network >/dev/null
           docker inspect myapp-nginx >/dev/null
 
+      - name: Write pre-deployment checklist
+        shell: bash
+        run: |
+          {
+            echo "## Member pre-deployment checklist"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Docker command | PASS |"
+            echo "| Docker Compose v2 | PASS |"
+            echo "| Docker network \`myapp-network\` | PASS |"
+            echo "| Nginx container \`myapp-nginx\` | PASS |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build and deploy Member without downtime
         id: deploy
         env:
@@ -49,6 +63,32 @@ jobs:
           chmod +x mvnw scripts/*.sh
           ./scripts/deploy-local.sh
 
+      - name: Collect post-deployment evidence
+        if: always()
+        id: evidence
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+
+          health_response="$(docker exec myapp-nginx \
+            wget -q -T 2 -O - http://127.0.0.1/member/hc 2>&1)"
+          health_status="$?"
+
+          containers="$(docker ps \
+            --filter 'name=myapp-member-' \
+            --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}' 2>&1)"
+
+          {
+            echo "health_status=$health_status"
+            echo "health_response<<EOF"
+            printf '%s\n' "$health_response"
+            echo "EOF"
+            echo "containers<<EOF"
+            printf '%s\n' "$containers"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Write deployment summary
         if: always()
         shell: bash
@@ -57,7 +97,22 @@ jobs:
           PREVIOUS_COLOR: ${{ steps.deploy.outputs.previous_color }}
           TARGET_COLOR: ${{ steps.deploy.outputs.target_color }}
           DEPLOY_LOG_FILE: ${{ steps.deploy.outputs.log_file }}
+          HEALTH_STATUS: ${{ steps.evidence.outputs.health_status }}
+          HEALTH_RESPONSE: ${{ steps.evidence.outputs.health_response }}
+          RUNNING_CONTAINERS: ${{ steps.evidence.outputs.containers }}
         run: |
+          if [ "${HEALTH_STATUS:-1}" = "0" ]; then
+            HEALTH_RESULT="PASS"
+          else
+            HEALTH_RESULT="WARN"
+          fi
+
+          if [ -n "${DEPLOY_LOG_FILE:-}" ]; then
+            LOG_RESULT="PASS"
+          else
+            LOG_RESULT="WARN"
+          fi
+
           {
             echo "## Member deployment"
             echo
@@ -68,6 +123,26 @@ jobs:
             echo "| Actor | \`${GITHUB_ACTOR}\` |"
             echo "| Transition | \`${PREVIOUS_COLOR:-unknown} -> ${TARGET_COLOR:-unknown}\` |"
             echo "| Server log | \`${DEPLOY_LOG_FILE:-not-created}\` |"
+            echo
+            echo "### Automated checklist"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Deployment script | \`${DEPLOY_STATUS:-FAILED}\` |"
+            echo "| Proxy health \`/member/hc\` | \`$HEALTH_RESULT\` |"
+            echo "| Deployment log path captured | \`$LOG_RESULT\` |"
+            echo
+            echo "### Proxy response"
+            echo
+            echo '```json'
+            printf '%s\n' "${HEALTH_RESPONSE:-not-collected}"
+            echo '```'
+            echo
+            echo "### Running Member containers"
+            echo
+            echo '```text'
+            printf '%s\n' "${RUNNING_CONTAINERS:-not-collected}"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Send Slack deployment notification
