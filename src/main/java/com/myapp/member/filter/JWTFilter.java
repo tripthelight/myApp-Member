@@ -29,6 +29,7 @@ public class JWTFilter extends OncePerRequestFilter {
         	|| requestURI.equals("/env")
         	|| requestURI.equals("/jwt/exchange")
         	|| requestURI.equals("/jwt/refresh")
+		|| (requestURI.equals("/login") && method.equals("POST"))
         	|| (requestURI.equals("/user") && method.equals("POST"))
         	|| (requestURI.equals("/user/exist") && method.equals("POST"));
 

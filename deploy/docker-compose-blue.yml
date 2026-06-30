@@ -14,7 +14,7 @@ services:
       MEMBER_DB_URL: jdbc:mariadb://myapp-mariadb:3306/myapp_member?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
       MEMBER_DB_USERNAME: myapp_member_user
       MEMBER_DB_PASSWORD: ${MEMBER_DB_PASSWORD:?MEMBER_DB_PASSWORD is required}
-      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://127.0.0.1:8080}
       OAUTH2_SUCCESS_REDIRECT_URL: ${OAUTH2_SUCCESS_REDIRECT_URL:-http://localhost/cookie}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     expose:
@@ -35,7 +35,7 @@ services:
       MEMBER_DB_URL: jdbc:mariadb://myapp-mariadb:3306/myapp_member?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
       MEMBER_DB_USERNAME: myapp_member_user
       MEMBER_DB_PASSWORD: ${MEMBER_DB_PASSWORD:?MEMBER_DB_PASSWORD is required}
-      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://127.0.0.1:8080}
       OAUTH2_SUCCESS_REDIRECT_URL: ${OAUTH2_SUCCESS_REDIRECT_URL:-http://localhost/cookie}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     expose:
