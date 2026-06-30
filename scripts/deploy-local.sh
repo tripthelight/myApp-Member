@@ -11,6 +11,7 @@ IMAGE_TAG="${IMAGE_TAG:-manual-$(date +%Y%m%d%H%M%S)}"
 DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
 STABILIZATION_SECONDS="${STABILIZATION_SECONDS:-30}"
 CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-2}"
+KEEP_IMAGE_COUNT="${KEEP_IMAGE_COUNT:-3}"
 DEPLOY_LOG_DIR="${DEPLOY_LOG_DIR:-$HOME/myapp-deploy-logs/member}"
 DEPLOY_STARTED_AT="$(date '+%Y-%m-%dT%H:%M:%S%z')"
 DEPLOY_RUN_ID="${GITHUB_RUN_ID:-manual}-$(date '+%Y%m%d-%H%M%S')"
@@ -93,6 +94,34 @@ if [[ ! "$STABILIZATION_SECONDS" =~ ^[1-9][0-9]*$ ]] || \
     echo "Stabilization and check interval values must be positive integers." >&2
     exit 1
 fi
+
+if [[ ! "$KEEP_IMAGE_COUNT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Keep image count must be a positive integer." >&2
+    exit 1
+fi
+
+cleanup_old_images() {
+    echo
+    echo "Cleanup old Docker images for $IMAGE_NAME. Keeping newest $KEEP_IMAGE_COUNT image(s)."
+
+    image_count=0
+
+    while IFS= read -r image_ref; do
+        if [ -z "$image_ref" ] || [[ "$image_ref" == *":<none>" ]]; then
+            continue
+        fi
+
+        image_count=$((image_count + 1))
+
+        if [ "$image_count" -le "$KEEP_IMAGE_COUNT" ]; then
+            echo "Keep image: $image_ref"
+            continue
+        fi
+
+        echo "Remove old image: $image_ref"
+        docker image rm "$image_ref" || true
+    done < <(docker image ls "$IMAGE_NAME" --format '{{.Repository}}:{{.Tag}}')
+}
 
 cleanup_on_error() {
     exit_code=$?
@@ -183,6 +212,8 @@ sleep "$DRAIN_SECONDS"
 echo "[8/8] Stop the inactive Member $CURRENT containers"
 IMAGE_NAME="$IMAGE_NAME" IMAGE_TAG="$IMAGE_TAG" \
     "$PROJECT_DIR/scripts/stop-inactive-color.sh" "$CURRENT"
+
+cleanup_old_images
 
 trap - ERR
 
