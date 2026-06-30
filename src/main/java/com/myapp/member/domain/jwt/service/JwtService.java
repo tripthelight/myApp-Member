@@ -135,14 +135,18 @@ public class JwtService {
         return refreshRepository.existsByRefresh(refreshToken);
     }
 
-    // JWT Refresh 토큰 삭제 메소드
-    public void removeRefresh(String refreshToken) {
-        refreshRepository.deleteByRefresh(refreshToken);
-    }
-
     // 특정 유저 Refresh 토큰 모두 삭제 (탈퇴)
     public void removeRefreshUser(String username) {
         refreshRepository.deleteByUsername(username);
+    }
+
+    @Transactional
+    public void removeRefresh(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+
+        refreshRepository.deleteByRefresh(refreshToken);
     }
 
 }

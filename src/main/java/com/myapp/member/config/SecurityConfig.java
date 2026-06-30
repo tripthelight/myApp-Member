@@ -103,9 +103,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
         // 기본 로그아웃 필터 + 커스텀 Refresh 토큰 삭제 핸들러 추가
-        http
-                .logout(logout -> logout
-                        .addLogoutHandler(new RefreshTokenLogoutHandler(jwtService)));
+	http
+        	.logout(logout -> logout
+                	.logoutUrl("/jwt/logout")
+                	.addLogoutHandler(new RefreshTokenLogoutHandler(jwtService))
+                	.logoutSuccessHandler((request, response, authentication) -> {
+                    		response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+                	})
+        	);
 
         // 기본 Form 기반 인증 필터들 disable
         http
@@ -123,18 +128,14 @@ public class SecurityConfig {
         // 인가
         http
                 .authorizeHttpRequests(auth -> auth
-			.requestMatchers("/hc", "/env").permitAll()
-                        .requestMatchers("/jwt/exchange", "/jwt/refresh").permitAll()
-                        // .requestMatchers(HttpMethod.POST, "/user/exist", "/user").permitAll()
-                        // .requestMatchers(HttpMethod.GET, "/user").hasRole(UserRoleType.USER.name())
-                        // .requestMatchers(HttpMethod.PUT, "/user").hasRole(UserRoleType.USER.name())
-                        // .requestMatchers(HttpMethod.DELETE, "/user").hasRole(UserRoleType.USER.name())
-                        .requestMatchers("/user", "/user/exist").permitAll()
+                	.requestMatchers("/hc", "/env").permitAll()
+			.requestMatchers("/jwt/exchange", "/jwt/refresh", "/jwt/logout").permitAll()
+			.requestMatchers(HttpMethod.POST, "/user/exist", "/user").permitAll()
 			.requestMatchers(HttpMethod.GET, "/user").hasRole(UserRoleType.USER.name())
 			.requestMatchers(HttpMethod.PUT, "/user").hasRole(UserRoleType.USER.name())
 			.requestMatchers(HttpMethod.DELETE, "/user").hasRole(UserRoleType.USER.name())
 			.anyRequest().authenticated()
-                );
+		);
 
         // 예외 처리
         http

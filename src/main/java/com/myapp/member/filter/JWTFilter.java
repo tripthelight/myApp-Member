@@ -19,62 +19,113 @@ import java.util.List;
 public class JWTFilter extends OncePerRequestFilter {
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
-	String requestURI = request.getRequestURI();
-	String method = request.getMethod();
+        String requestURI = request.getRequestURI();
+        String method = request.getMethod();
 
-	boolean isPublicApi =
-        	requestURI.equals("/hc")
-        	|| requestURI.equals("/env")
-        	|| requestURI.equals("/jwt/exchange")
-        	|| requestURI.equals("/jwt/refresh")
-		|| (requestURI.equals("/login") && method.equals("POST"))
-        	|| (requestURI.equals("/user") && method.equals("POST"))
-        	|| (requestURI.equals("/user/exist") && method.equals("POST"));
+        if (isPublicRequest(requestURI, method)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
-	if (isPublicApi) {
-    	    filterChain.doFilter(request, response);
-    	    return;
-	}
+        String authorization = request.getHeader("Authorization");
 
-	String authorization = request.getHeader("Authorization");
-	if (authorization == null) {
-    	    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-    	    response.setContentType("application/json;charset=UTF-8");
-    	    response.getWriter().write("{\"error\":\"Authorization 헤더가 없습니다.\"}");
-    	    return;
-	}
+        if (authorization == null || authorization.isBlank()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"Authorization 헤더가 없습니다.\"}");
+            return;
+        }
 
-	if (!authorization.startsWith("Bearer ")) {
-    	    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-    	    response.setContentType("application/json;charset=UTF-8");
-    	    response.getWriter().write("{\"error\":\"Bearer 토큰 형식이 아닙니다.\"}");
-    	    return;
-	}
+        if (!authorization.startsWith("Bearer ")) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"error\":\"Bearer 토큰 형식이 아닙니다.\"}");
+            return;
+        }
 
-        // 토큰 파싱
-        String accessToken = authorization.split(" ")[1];
+        String accessToken = authorization.substring(7);
 
-        if (JWTUtil.isValid(accessToken, true)) {
+        try {
+            if (!JWTUtil.isValid(accessToken, true)) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"error\":\"토큰 만료 또는 유효하지 않은 토큰\"}");
+                return;
+            }
 
             String username = JWTUtil.getUsername(accessToken);
             String role = JWTUtil.getRole(accessToken);
 
-            List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
+            if (username == null || username.isBlank()) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"error\":\"토큰에 username이 없습니다.\"}");
+                return;
+            }
 
-            Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
-            SecurityContextHolder.getContext().setAuthentication(auth);
+            if (role == null || role.isBlank()) {
+                role = "ROLE_USER";
+            }
+
+            if (!role.startsWith("ROLE_")) {
+                role = "ROLE_" + role;
+            }
+
+            List<GrantedAuthority> authorities =
+                    Collections.singletonList(new SimpleGrantedAuthority(role));
+
+            Authentication authentication =
+                    new UsernamePasswordAuthenticationToken(username, null, authorities);
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
             filterChain.doFilter(request, response);
-
-        } else {
+        } catch (Exception e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"토큰 만료 또는 유효하지 않은 토큰\"}");
-            return;
+            response.getWriter().write("{\"error\":\"유효하지 않은 accessToken입니다.\"}");
         }
-
     }
 
+    private boolean isPublicRequest(String requestURI, String method) {
+        if (requestURI.equals("/hc")) {
+            return true;
+        }
+
+        if (requestURI.equals("/env")) {
+            return true;
+        }
+
+        if (requestURI.equals("/login")) {
+            return true;
+        }
+
+        if (requestURI.equals("/jwt/exchange")) {
+            return true;
+        }
+
+        if (requestURI.equals("/jwt/refresh")) {
+            return true;
+        }
+
+        if (requestURI.equals("/jwt/logout")) {
+            return true;
+        }
+
+        if (requestURI.equals("/user") && "POST".equalsIgnoreCase(method)) {
+            return true;
+        }
+
+        if (requestURI.equals("/user/exist") && "POST".equalsIgnoreCase(method)) {
+            return true;
+        }
+
+        return false;
+    }
 }

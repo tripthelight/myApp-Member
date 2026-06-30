@@ -5,10 +5,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface RefreshRepository extends JpaRepository<RefreshEntity, Long> {
 
-    Boolean existsByRefresh(String refreshToken);
+    Boolean existsByRefresh(String refresh);
+
+    Optional<RefreshEntity> findByRefresh(String refresh);
 
     @Transactional
     void deleteByRefresh(String refresh);
@@ -16,8 +19,6 @@ public interface RefreshRepository extends JpaRepository<RefreshEntity, Long> {
     @Transactional
     void deleteByUsername(String username);
 
-    // 특정일 지난 refresh 토큰 삭제
     @Transactional
-    void deleteByCreatedDateBefore(LocalDateTime createdDate);
-
+    void deleteByCreatedDateBefore(LocalDateTime dateTime);
 }
