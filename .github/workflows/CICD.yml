@@ -59,6 +59,7 @@ jobs:
           DRAIN_SECONDS: '10'
           STABILIZATION_SECONDS: '30'
           CHECK_INTERVAL_SECONDS: '2'
+          KEEP_IMAGE_COUNT: '3'
         run: |
           chmod +x mvnw scripts/*.sh
           ./scripts/deploy-local.sh
