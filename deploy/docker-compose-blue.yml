@@ -11,6 +11,12 @@ services:
       SERVER_NAME: member_blue_1
       DISPLAY_SERVER_ADDRESS: myapp-member-blue-1
       SERVER_PORT: 8080
+      MEMBER_DB_URL: jdbc:mariadb://myapp-mariadb:3306/myapp_member?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+      MEMBER_DB_USERNAME: myapp_member_user
+      MEMBER_DB_PASSWORD: ${MEMBER_DB_PASSWORD:?MEMBER_DB_PASSWORD is required}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost}
+      OAUTH2_SUCCESS_REDIRECT_URL: ${OAUTH2_SUCCESS_REDIRECT_URL:-http://localhost/cookie}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     expose:
       - "8080"
     networks:
@@ -26,6 +32,12 @@ services:
       SERVER_NAME: member_blue_2
       DISPLAY_SERVER_ADDRESS: myapp-member-blue-2
       SERVER_PORT: 8080
+      MEMBER_DB_URL: jdbc:mariadb://myapp-mariadb:3306/myapp_member?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul
+      MEMBER_DB_USERNAME: myapp_member_user
+      MEMBER_DB_PASSWORD: ${MEMBER_DB_PASSWORD:?MEMBER_DB_PASSWORD is required}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost}
+      OAUTH2_SUCCESS_REDIRECT_URL: ${OAUTH2_SUCCESS_REDIRECT_URL:-http://localhost/cookie}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
     expose:
       - "8080"
     networks:

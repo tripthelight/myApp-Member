@@ -1,8 +1,22 @@
 spring:
   application:
     name: myapp-member
+
   lifecycle:
     timeout-per-shutdown-phase: 30s
+
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: ${MEMBER_DB_URL:jdbc:mariadb://myapp-mariadb:3306/myapp_member?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul}
+    username: ${MEMBER_DB_USERNAME:myapp_member_user}
+    password: ${MEMBER_DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: true
 
 server:
   port: ${SERVER_PORT:8080}
@@ -15,3 +29,10 @@ serverName: ${SERVER_NAME:local_server}
 
 app:
   color: ${APP_COLOR:local}
+  cors:
+    allowed-origin: ${CORS_ALLOWED_ORIGIN:http://localhost:5173}
+  oauth2:
+    success-redirect-url: ${OAUTH2_SUCCESS_REDIRECT_URL:http://localhost:5173/cookie}
+
+jwt:
+  secret: ${JWT_SECRET}

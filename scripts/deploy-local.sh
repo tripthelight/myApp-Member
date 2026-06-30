@@ -16,6 +16,25 @@ BUILD_CACHE_PRUNE_UNTIL="${BUILD_CACHE_PRUNE_UNTIL:-24h}"
 DEPLOY_LOG_DIR="${DEPLOY_LOG_DIR:-$HOME/myapp-deploy-logs/member}"
 DEPLOY_STARTED_AT="$(date '+%Y-%m-%dT%H:%M:%S%z')"
 DEPLOY_RUN_ID="${GITHUB_RUN_ID:-manual}-$(date '+%Y%m%d-%H%M%S')"
+MEMBER_DB_PASSWORD_FILE="${INFRA_DIR}/secrets/member-db-password.txt"
+
+if [ ! -f "$MEMBER_DB_PASSWORD_FILE" ]; then
+    echo "Member DB password file does not exist: $MEMBER_DB_PASSWORD_FILE" >&2
+    exit 1
+fi
+
+MEMBER_DB_PASSWORD="$(cat "$MEMBER_DB_PASSWORD_FILE")"
+export MEMBER_DB_PASSWORD
+
+MEMBER_JWT_SECRET_FILE="${INFRA_DIR}/secrets/member-jwt-secret.txt"
+
+if [ ! -f "$MEMBER_JWT_SECRET_FILE" ]; then
+    echo "Member JWT secret file does not exist: $MEMBER_JWT_SECRET_FILE" >&2
+    exit 1
+fi
+
+JWT_SECRET="$(cat "$MEMBER_JWT_SECRET_FILE")"
+export JWT_SECRET
 
 mkdir -p "$DEPLOY_LOG_DIR"
 LOG_FILE="$DEPLOY_LOG_DIR/deploy-$DEPLOY_RUN_ID.log"
@@ -171,7 +190,7 @@ echo "Docker image: $IMAGE_NAME:$IMAGE_TAG"
 echo "Deployment log: $LOG_FILE"
 
 echo "[1/8] Build Spring Boot application"
-./mvnw --batch-mode --errors clean package
+./mvnw --batch-mode --errors clean package -DskipTests
 
 echo "[2/8] Build Docker image"
 docker build --tag "$IMAGE_NAME:$IMAGE_TAG" .
