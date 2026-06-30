@@ -12,6 +12,7 @@ DRAIN_SECONDS="${DRAIN_SECONDS:-10}"
 STABILIZATION_SECONDS="${STABILIZATION_SECONDS:-30}"
 CHECK_INTERVAL_SECONDS="${CHECK_INTERVAL_SECONDS:-2}"
 KEEP_IMAGE_COUNT="${KEEP_IMAGE_COUNT:-3}"
+BUILD_CACHE_PRUNE_UNTIL="${BUILD_CACHE_PRUNE_UNTIL:-24h}"
 DEPLOY_LOG_DIR="${DEPLOY_LOG_DIR:-$HOME/myapp-deploy-logs/member}"
 DEPLOY_STARTED_AT="$(date '+%Y-%m-%dT%H:%M:%S%z')"
 DEPLOY_RUN_ID="${GITHUB_RUN_ID:-manual}-$(date '+%Y%m%d-%H%M%S')"
@@ -123,6 +124,12 @@ cleanup_old_images() {
     done < <(docker image ls "$IMAGE_NAME" --format '{{.Repository}}:{{.Tag}}')
 }
 
+cleanup_build_cache() {
+    echo
+    echo "Cleanup Docker build cache older than $BUILD_CACHE_PRUNE_UNTIL."
+    docker builder prune -f --filter "until=$BUILD_CACHE_PRUNE_UNTIL" || true
+}
+
 cleanup_on_error() {
     exit_code=$?
 
@@ -214,6 +221,7 @@ IMAGE_NAME="$IMAGE_NAME" IMAGE_TAG="$IMAGE_TAG" \
     "$PROJECT_DIR/scripts/stop-inactive-color.sh" "$CURRENT"
 
 cleanup_old_images
+cleanup_build_cache
 
 trap - ERR
 

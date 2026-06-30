@@ -60,6 +60,7 @@ jobs:
           STABILIZATION_SECONDS: '30'
           CHECK_INTERVAL_SECONDS: '2'
           KEEP_IMAGE_COUNT: '3'
+          BUILD_CACHE_PRUNE_UNTIL: '24h'
         run: |
           chmod +x mvnw scripts/*.sh
           ./scripts/deploy-local.sh
