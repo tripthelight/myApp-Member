@@ -2,13 +2,26 @@ name: Deploy Member Local
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: self-hosted
 
     steps:
-      - name: Deploy member with local blue green script
+      - name: Checkout member repository
+        uses: actions/checkout@v4
+
+      - name: Build member Docker image
         run: |
+          IMAGE_TAG="${GITHUB_SHA}"
+          docker build -t myapp-member:${IMAGE_TAG} .
+          docker tag myapp-member:${IMAGE_TAG} myapp-member:latest
+
+      - name: Deploy member with new image
+        run: |
+          IMAGE_TAG="${GITHUB_SHA}"
           cd /home/um/myApp-Infra
-          ./scripts/deploy-member.sh
+          IMAGE_OVERRIDE="myapp-member:${IMAGE_TAG}" ./scripts/deploy-member.sh
