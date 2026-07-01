@@ -14,6 +14,11 @@ jobs:
       - name: Checkout member repository
         uses: actions/checkout@v4
 
+      - name: Build member jar
+        run: |
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
+
       - name: Build member Docker image
         run: |
           IMAGE_TAG="${GITHUB_SHA}"
