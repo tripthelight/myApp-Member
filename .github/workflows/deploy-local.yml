@@ -1,0 +1,14 @@
+name: Deploy Member Local
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Deploy member with local blue green script
+        run: |
+          cd /home/um/myApp-Infra
+          ./scripts/deploy-member.sh
