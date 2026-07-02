@@ -2,6 +2,7 @@ package com.myapp.member.config;
 
 import com.myapp.member.domain.jwt.service.JwtService;
 import com.myapp.member.domain.user.entity.UserRoleType;
+import com.myapp.member.domain.user.service.UserService;
 import com.myapp.member.filter.JWTFilter;
 import com.myapp.member.filter.LoginFilter;
 import com.myapp.member.handler.RefreshTokenLogoutHandler;
@@ -41,6 +42,7 @@ public class SecurityConfig {
     private final AuthenticationSuccessHandler loginSuccessHandler;
     private final AuthenticationSuccessHandler socialSuccessHandler;
     private final JwtService jwtService;
+    private final UserService userService;
 
     @Value("${app.cors.allowed-origin:http://localhost:5173}")
     private String allowedOrigin;
@@ -49,12 +51,14 @@ public class SecurityConfig {
             AuthenticationConfiguration authenticationConfiguration,
             @Qualifier("LoginSuccessHandler") AuthenticationSuccessHandler loginSuccessHandler,
             @Qualifier("SocialSuccessHandler") AuthenticationSuccessHandler socialSuccessHandler,
-            JwtService jwtService
+            JwtService jwtService,
+            UserService userService
     ) {
         this.authenticationConfiguration = authenticationConfiguration;
         this.loginSuccessHandler = loginSuccessHandler;
         this.socialSuccessHandler = socialSuccessHandler;
         this.jwtService = jwtService;
+        this.userService = userService;
     }
 
     @Bean
@@ -80,7 +84,10 @@ public class SecurityConfig {
 
         configuration.setAllowedOrigins(List.of(
                 allowedOrigin,
+                "http://localhost",
                 "http://localhost:5173",
+                "http://127.0.0.1",
+                "http://127.0.0.1:5173",
                 "http://127.0.0.1:8080"
         ));
 
@@ -136,6 +143,12 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(userService)
+                        )
+                        .successHandler(socialSuccessHandler)
+                )
                 .logout(logout -> logout
                         .logoutUrl("/jwt/logout")
                         .addLogoutHandler(new RefreshTokenLogoutHandler(jwtService))
@@ -145,6 +158,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/hc", "/env").permitAll()
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/jwt/exchange", "/jwt/refresh", "/jwt/logout").permitAll()
                         .requestMatchers(HttpMethod.POST, "/user/exist", "/user").permitAll()
                         .requestMatchers(HttpMethod.GET, "/user").hasRole(UserRoleType.USER.name())
