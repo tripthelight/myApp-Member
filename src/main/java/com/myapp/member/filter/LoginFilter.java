@@ -15,7 +15,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.AbstractAuthenticationProcessingFilter;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
-import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.util.StreamUtils;
 
@@ -25,8 +24,10 @@ import java.util.Map;
 
 public class LoginFilter extends AbstractAuthenticationProcessingFilter {
 
-    private static final RequestMatcher LOGIN_REQUEST_MATCHER =
-            PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, "/login");
+    private static final RequestMatcher LOGIN_REQUEST_MATCHER = request ->
+            HttpMethod.POST.matches(request.getMethod())
+                    && ("/login".equals(request.getServletPath())
+                    || "/member/login".equals(request.getServletPath()));
 
     private final AuthenticationSuccessHandler authenticationSuccessHandler;
     private final ObjectMapper objectMapper = new ObjectMapper();
