@@ -24,25 +24,25 @@ spring:
         registration:
           google:
             client-name: google
-            client-id: ${GOOGLE_CLIENT_ID:}
-            client-secret: ${GOOGLE_CLIENT_SECRET:}
-            redirect-uri: ${GOOGLE_REDIRECT_URI:http://127.0.0.1/member/login/oauth2/code/google}
+            client-id: ${GOOGLE_CLIENT_ID:disabled-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:disabled-google-client-secret}
+            redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost/member/login/oauth2/code/google}
             authorization-grant-type: authorization_code
             scope:
               - profile
               - email
 
-          naver:
-            client-name: naver
-            client-id: ${NAVER_CLIENT_ID:}
-            client-secret: ${NAVER_CLIENT_SECRET:}
-            redirect-uri: ${NAVER_REDIRECT_URI:http://127.0.0.1/member/login/oauth2/code/naver}
-            authorization-grant-type: authorization_code
-            client-authentication-method: client_secret_post
-            scope:
-              - name
-              - email
-              - nickname
+            naver:
+              client-name: naver
+              client-id: ${NAVER_CLIENT_ID:disabled-naver-client-id}
+              client-secret: ${NAVER_CLIENT_SECRET:disabled-naver-client-secret}
+              redirect-uri: ${NAVER_REDIRECT_URI:http://localhost/member/login/oauth2/code/naver}
+              authorization-grant-type: authorization_code
+              client-authentication-method: client_secret_post
+              scope:
+                - name
+                - email
+                - nickname
 
         provider:
           naver:
