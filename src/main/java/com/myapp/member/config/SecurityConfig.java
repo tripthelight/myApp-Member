@@ -100,6 +100,7 @@ public class SecurityConfig {
 
         // CORS 설정
         http
+                .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()));
 
         // 기본 로그아웃 필터 + 커스텀 Refresh 토큰 삭제 핸들러 추가
@@ -128,6 +129,8 @@ public class SecurityConfig {
         // 인가
         http
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/member/login").permitAll()
                 	.requestMatchers("/hc", "/env").permitAll()
 			.requestMatchers("/jwt/exchange", "/jwt/refresh", "/jwt/logout").permitAll()
 			.requestMatchers(HttpMethod.POST, "/user/exist", "/user").permitAll()
