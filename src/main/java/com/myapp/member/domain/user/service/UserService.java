@@ -74,7 +74,7 @@ public class UserService extends DefaultOAuth2UserService implements UserDetails
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
 
-        UserEntity entity = userRepository.findByUsernameAndIsLockAndIsSocial(username, false, false)
+        UserEntity entity = userRepository.findLoginUser(username)
                 .orElseThrow(() -> new UsernameNotFoundException(username));
 
         return User.builder()
