@@ -29,7 +29,6 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import com.myapp.member.domain.user.service.UserService;
 
 import java.util.List;
 
@@ -83,11 +82,11 @@ public class SecurityConfig {
                 allowedOrigin,
                 "http://localhost",
                 "http://localhost:5173",
+                "http://localhost:5174",
                 "http://127.0.0.1",
                 "http://127.0.0.1:5173",
-                "http://127.0.0.1:8080",
-		"http://localhost:5174",
-                "http://127.0.0.1:5174"
+                "http://127.0.0.1:5174",
+                "http://127.0.0.1:8080"
         ));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
@@ -116,7 +115,6 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-			.requestMatchers(HttpMethod.GET, "/admin/**").hasRole(UserRoleType.ADMIN.name())
                         .anyRequest().permitAll()
                 )
                 .exceptionHandling(e -> e
@@ -171,6 +169,7 @@ public class SecurityConfig {
                         .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                         .requestMatchers("/jwt/exchange", "/jwt/refresh", "/jwt/logout").permitAll()
                         .requestMatchers(HttpMethod.POST, "/user/exist", "/user").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/admin/**").hasRole(UserRoleType.ADMIN.name())
                         .requestMatchers(HttpMethod.GET, "/user").hasRole(UserRoleType.USER.name())
                         .requestMatchers(HttpMethod.PUT, "/user").hasRole(UserRoleType.USER.name())
                         .requestMatchers(HttpMethod.DELETE, "/user").hasRole(UserRoleType.USER.name())
