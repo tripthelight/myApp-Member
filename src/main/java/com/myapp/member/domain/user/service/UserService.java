@@ -25,6 +25,9 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.myapp.member.domain.user.dto.AdminSummaryResponseDTO;
+import com.myapp.member.domain.user.dto.AdminUserResponseDTO;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -234,6 +237,24 @@ public class UserService extends DefaultOAuth2UserService implements UserDetails
                 .orElseThrow(() -> new UsernameNotFoundException("해당 유저를 찾을 수 없습니다: " + username));
 
         return new UserResponseDTO(username, entity.getIsSocial(), entity.getNickname(), entity.getEmail());
+    }
+
+    @Transactional(readOnly = true)
+    public AdminSummaryResponseDTO readAdminSummary() {
+        long totalUsers = userRepository.count();
+        long socialUsers = userRepository.countByIsSocial(true);
+        long localUsers = userRepository.countByIsSocial(false);
+        long lockedUsers = userRepository.countByIsLock(true);
+
+        return new AdminSummaryResponseDTO(totalUsers, localUsers, socialUsers, lockedUsers);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminUserResponseDTO> readAdminUsers() {
+        return userRepository.findAllByOrderByIdDesc()
+                .stream()
+                .map(AdminUserResponseDTO::from)
+                .toList();
     }
 
 }

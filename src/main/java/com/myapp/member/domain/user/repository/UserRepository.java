@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
@@ -17,6 +18,12 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByUsernameAndIsSocial(String username, Boolean social);
 
     Optional<UserEntity> findByUsernameAndIsLock(String username, Boolean isLock);
+
+    List<UserEntity> findAllByOrderByIdDesc();
+
+    long countByIsSocial(Boolean social);
+
+    long countByIsLock(Boolean lock);
 
     @Query("""
             select u
