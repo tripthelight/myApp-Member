@@ -2,6 +2,8 @@ package com.myapp.member.domain.user.service;
 
 import com.myapp.member.SocialProviderType;
 import com.myapp.member.domain.jwt.service.JwtService;
+import com.myapp.member.domain.user.dto.AdminSummaryResponseDTO;
+import com.myapp.member.domain.user.dto.AdminUserResponseDTO;
 import com.myapp.member.domain.user.dto.CustomOAuth2User;
 import com.myapp.member.domain.user.dto.UserRequestDTO;
 import com.myapp.member.domain.user.dto.UserResponseDTO;
@@ -24,9 +26,6 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import com.myapp.member.domain.user.dto.AdminSummaryResponseDTO;
-import com.myapp.member.domain.user.dto.AdminUserResponseDTO;
 
 import java.util.List;
 import java.util.Map;
@@ -232,6 +231,50 @@ public class UserService extends DefaultOAuth2UserService implements UserDetails
                 .stream()
                 .map(AdminUserResponseDTO::from)
                 .toList();
+    }
+
+    @Transactional
+    public Long lockUserByAdmin(String username) {
+        validateAdminTarget(username);
+
+        UserEntity entity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException(username));
+
+        entity.lock();
+        jwtService.removeRefreshUser(username);
+
+        return userRepository.save(entity).getId();
+    }
+
+    @Transactional
+    public Long unlockUserByAdmin(String username) {
+        validateAdminTarget(username);
+
+        UserEntity entity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException(username));
+
+        entity.unlock();
+
+        return userRepository.save(entity).getId();
+    }
+
+    @Transactional
+    public void deleteUserByAdmin(String username) {
+        validateAdminTarget(username);
+
+        UserEntity entity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException(username));
+
+        userRepository.delete(entity);
+        jwtService.removeRefreshUser(username);
+    }
+
+    private void validateAdminTarget(String username) {
+        String sessionUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        if (sessionUsername.equals(username)) {
+            throw new AccessDeniedException("관리자 본인 계정은 이 작업을 수행할 수 없습니다.");
+        }
     }
 
 }

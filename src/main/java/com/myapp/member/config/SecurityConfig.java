@@ -89,7 +89,7 @@ public class SecurityConfig {
                 "http://127.0.0.1:8080"
         ));
 
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setExposedHeaders(List.of("Authorization", "Set-Cookie"));
@@ -170,6 +170,8 @@ public class SecurityConfig {
                         .requestMatchers("/jwt/exchange", "/jwt/refresh", "/jwt/logout").permitAll()
                         .requestMatchers(HttpMethod.POST, "/user/exist", "/user").permitAll()
                         .requestMatchers(HttpMethod.GET, "/admin/**").hasRole(UserRoleType.ADMIN.name())
+                        .requestMatchers(HttpMethod.PATCH, "/admin/**").hasRole(UserRoleType.ADMIN.name())
+                        .requestMatchers(HttpMethod.DELETE, "/admin/**").hasRole(UserRoleType.ADMIN.name())
                         .requestMatchers(HttpMethod.GET, "/user").hasRole(UserRoleType.USER.name())
                         .requestMatchers(HttpMethod.PUT, "/user").hasRole(UserRoleType.USER.name())
                         .requestMatchers(HttpMethod.PUT, "/user/password").hasRole(UserRoleType.USER.name())

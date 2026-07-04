@@ -69,4 +69,12 @@ public class UserEntity {
         this.password = password;
     }
 
+    public void lock() {
+        this.isLock = true;
+    }
+
+    public void unlock() {
+        this.isLock = false;
+    }
+
 }
