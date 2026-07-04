@@ -18,6 +18,8 @@ public class UserRequestDTO {
 
     @NotBlank(groups = {existGroup.class, addGroup.class, updateGroup.class, deleteGroup.class}) @Size(min = 4)
     private String username;
+    @NotBlank(groups = {passwordGroup.class}) @Size(min = 4)
+    private String currentPassword;
     @NotBlank(groups = {addGroup.class, passwordGroup.class}) @Size(min = 4)
     private String password;
     @NotBlank(groups = {addGroup.class, updateGroup.class})

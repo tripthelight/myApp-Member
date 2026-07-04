@@ -21,7 +21,6 @@ public class UserController {
         this.userService = userService;
     }
 
-    // 자체 로그인 유저 존재 확인
     @PostMapping(value = "/user/exist", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Boolean> existUserApi(
             @Validated(UserRequestDTO.existGroup.class) @RequestBody UserRequestDTO dto
@@ -29,7 +28,6 @@ public class UserController {
         return ResponseEntity.ok(userService.existUser(dto));
     }
 
-    // 회원가입
     @PostMapping(value = "/user", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Long>> joinApi(
             @Validated(UserRequestDTO.addGroup.class) @RequestBody UserRequestDTO dto
@@ -39,13 +37,11 @@ public class UserController {
         return ResponseEntity.status(201).body(responseBody);
     }
 
-    // 유저 정보
     @GetMapping("/user")
     public UserResponseDTO userMeApi() {
         return userService.readUser();
     }
 
-    // 유저 수정 (자체 로그인 유저만)
     @PutMapping(value = "/user", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Long> updateUserApi(
             @Validated(UserRequestDTO.updateGroup.class) @RequestBody UserRequestDTO dto
@@ -53,12 +49,17 @@ public class UserController {
         return ResponseEntity.status(200).body(userService.updateUser(dto));
     }
 
-    // 유저 제거 (자체/소셜)
+    @PutMapping(value = "/user/password", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Long> updatePasswordApi(
+            @Validated(UserRequestDTO.passwordGroup.class) @RequestBody UserRequestDTO dto
+    ) {
+        return ResponseEntity.status(200).body(userService.updatePassword(dto));
+    }
+
     @DeleteMapping(value = "/user", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Boolean> deleteUserApi(
             @Validated(UserRequestDTO.deleteGroup.class) @RequestBody UserRequestDTO dto
     ) throws AccessDeniedException {
-
         userService.deleteUser(dto);
         return ResponseEntity.status(200).body(true);
     }

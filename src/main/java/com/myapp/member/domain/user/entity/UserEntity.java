@@ -65,4 +65,8 @@ public class UserEntity {
         this.nickname = dto.getNickname();
     }
 
+    public void updatePassword(String password) {
+        this.password = password;
+    }
+
 }
