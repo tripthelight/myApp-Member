@@ -16,14 +16,17 @@ env:
   IMAGE_NAME: tripthelight/myapp-member
 
 jobs:
-  build-publish-deploy:
-    name: Build, publish and deploy Member
+  build-publish:
+    name: Build and publish Member image
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     defaults:
       run:
         shell: bash
+
+    outputs:
+      image-reference: ${{ steps.image.outputs.reference }}
 
     steps:
       - name: Checkout member repository
@@ -44,6 +47,7 @@ jobs:
           ./mvnw clean package -DskipTests
 
           echo "Built artifacts:"
+
           find target \
             -maxdepth 1 \
             -type f \
@@ -63,6 +67,19 @@ jobs:
             exit 1
           fi
 
+      - name: Set image reference
+        id: image
+        run: |
+          set -Eeuo pipefail
+
+          IMAGE_REFERENCE="${REGISTRY}/${IMAGE_NAME}:${GITHUB_SHA}"
+
+          echo "reference=${IMAGE_REFERENCE}" \
+            >> "$GITHUB_OUTPUT"
+
+          echo "IMAGE_REFERENCE=${IMAGE_REFERENCE}" \
+            >> "$GITHUB_ENV"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -79,7 +96,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ steps.image.outputs.reference }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -87,80 +104,170 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Prepare secured SSH client
-        env:
-          AWS_SSH_PRIVATE_KEY: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
-          AWS_SSH_HOST_KEY: ${{ secrets.AWS_SSH_HOST_KEY }}
+  deploy:
+    name: Deploy Member to AWS
+    needs:
+      - build-publish
+
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - myapp-member-prod
+
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      INFRA_DIR: /home/ubuntu/myapp/infra/current
+      IMAGE_REFERENCE: ${{ needs.build-publish.outputs.image-reference }}
+      GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+      GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+
+    steps:
+      - name: Validate AWS deployment environment
         run: |
           set -Eeuo pipefail
 
-          install -d \
-            -m 700 \
-            "$HOME/.ssh"
+          test "$(whoami)" = "ubuntu"
+          test -n "$IMAGE_REFERENCE"
+          test -n "$GHCR_USERNAME"
+          test -n "$GHCR_READ_TOKEN"
 
-          printf '%s\n' "$AWS_SSH_PRIVATE_KEY" \
-            > "$HOME/.ssh/myapp-member-deploy-key"
+          case "$IMAGE_REFERENCE" in
+            ghcr.io/tripthelight/myapp-member:*)
+              ;;
+            *)
+              echo "Unexpected image reference: $IMAGE_REFERENCE" >&2
+              exit 1
+              ;;
+          esac
 
-          printf '%s\n' "$AWS_SSH_HOST_KEY" \
-            > "$HOME/.ssh/known_hosts"
+          IMAGE_TAG="${IMAGE_REFERENCE##*:}"
 
-          chmod 600 \
-            "$HOME/.ssh/myapp-member-deploy-key" \
-            "$HOME/.ssh/known_hosts"
-
-          ssh-keygen \
-            -y \
-            -f "$HOME/.ssh/myapp-member-deploy-key" \
-            >/dev/null
-
-          if ! ssh-keygen \
-            -F "${{ secrets.AWS_HOST }}" \
-            -f "$HOME/.ssh/known_hosts" \
-            >/dev/null
-          then
-            echo "AWS host key entry was not found." >&2
+          if [[ ! "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Image tag must be a full Git commit SHA." >&2
             exit 1
           fi
 
-      - name: Deploy member image to AWS
-        env:
-          AWS_HOST: ${{ secrets.AWS_HOST }}
-          AWS_PORT: ${{ secrets.AWS_PORT }}
-          AWS_USER: ${{ secrets.AWS_USER }}
-          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
-          IMAGE_REFERENCE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          test -d "$INFRA_DIR"
+          test -f "$INFRA_DIR/scripts/deploy-member.sh"
+          test -f "$INFRA_DIR/scripts/deploy-service.sh"
+          test -f /etc/myapp/production.env
+
+          CURRENT_BRANCH="$(
+            git -C "$INFRA_DIR" branch --show-current
+          )"
+
+          if [ "$CURRENT_BRANCH" != "aws-production" ]; then
+            echo "Unexpected Infra branch: $CURRENT_BRANCH" >&2
+            exit 1
+          fi
+
+          if [ -n "$(git -C "$INFRA_DIR" status --short)" ]; then
+            git -C "$INFRA_DIR" status --short
+            echo "Infra worktree contains changes." >&2
+            exit 1
+          fi
+
+          docker info >/dev/null
+
+      - name: Verify AWS production Infra synchronization
         run: |
           set -Eeuo pipefail
 
-          test -n "$AWS_HOST"
-          test -n "$AWS_PORT"
-          test -n "$AWS_USER"
-          test -n "$GHCR_READ_TOKEN"
-          test -n "$IMAGE_REFERENCE"
+          git -C "$INFRA_DIR" \
+            fetch origin aws-production-infra
 
-          printf '%s\n' "$GHCR_READ_TOKEN" |
-            ssh \
-              -T \
-              -i "$HOME/.ssh/myapp-member-deploy-key" \
-              -p "$AWS_PORT" \
-              -o BatchMode=yes \
-              -o IdentitiesOnly=yes \
-              -o StrictHostKeyChecking=yes \
-              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-              -o ConnectTimeout=15 \
-              "$AWS_USER@$AWS_HOST" \
-              "deploy $IMAGE_REFERENCE"
+          LOCAL_COMMIT="$(
+            git -C "$INFRA_DIR" rev-parse HEAD
+          )"
+
+          REMOTE_COMMIT="$(
+            git -C "$INFRA_DIR" \
+              rev-parse origin/aws-production-infra
+          )"
+
+          echo "LOCAL_COMMIT=$LOCAL_COMMIT"
+          echo "REMOTE_COMMIT=$REMOTE_COMMIT"
+
+          if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]; then
+            echo "AWS production Infra is not synchronized." >&2
+            exit 1
+          fi
+
+      - name: Log in to GitHub Container Registry
+        run: |
+          set -Eeuo pipefail
+
+          DOCKER_CONFIG_DIR="$(
+            mktemp -d
+          )"
+
+          echo "DOCKER_CONFIG=$DOCKER_CONFIG_DIR" \
+            >> "$GITHUB_ENV"
+
+          printf '%s' "$GHCR_READ_TOKEN" |
+            docker login ghcr.io \
+              --username "$GHCR_USERNAME" \
+              --password-stdin
+
+      - name: Pull member image
+        run: |
+          set -Eeuo pipefail
+
+          docker pull "$IMAGE_REFERENCE"
+
+      - name: Deploy member image
+        run: |
+          set -Eeuo pipefail
+
+          IMAGE_OVERRIDE="$IMAGE_REFERENCE" \
+          PRODUCTION_ENV_FILE="/etc/myapp/production.env" \
+            bash "$INFRA_DIR/scripts/deploy-member.sh"
+
+      - name: Verify deployed Member containers
+        run: |
+          set -Eeuo pipefail
+
+          MEMBER_CONTAINER_COUNT="$(
+            docker ps \
+              --filter 'name=myapp-member-' \
+              --format '{{.Names}}' \
+              | wc -l
+          )"
+
+          if [ "$MEMBER_CONTAINER_COUNT" -lt 1 ]; then
+            echo "No running Member container was found." >&2
+            exit 1
+          fi
+
+          docker ps \
+            --filter 'name=myapp-member-' \
+            --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
+
+      - name: Clean temporary Docker credentials
+        if: always()
+        run: |
+          set -Eeuo pipefail
+
+          if [ -n "${DOCKER_CONFIG:-}" ] &&
+             [ -d "$DOCKER_CONFIG" ]; then
+            rm -rf "$DOCKER_CONFIG"
+          fi
 
       - name: Write deployment summary
         if: success()
-        env:
-          IMAGE_REFERENCE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
         run: |
           {
             echo "## Member AWS deployment"
             echo
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Image: \`${IMAGE_REFERENCE}\`"
+            echo "- Runner: \`beatforever-prod-member\`"
             echo "- Target: AWS production"
             echo "- Result: successful"
           } >> "$GITHUB_STEP_SUMMARY"
