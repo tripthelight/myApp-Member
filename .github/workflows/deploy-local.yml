@@ -2,12 +2,9 @@ name: Deploy Member Local
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 concurrency:
-  group: myapp-member-deploy
+  group: myapp-member-local-deploy
   cancel-in-progress: false
 
 jobs:
@@ -20,38 +17,59 @@ jobs:
 
     steps:
       - name: Checkout member repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Verify deployment environment
         run: |
+          set -Eeuo pipefail
+
           docker version
           docker network inspect myapp-network >/dev/null
           docker inspect myapp-nginx >/dev/null
+
           test -d /home/um/myApp-Infra
           test -f /home/um/myApp-Infra/scripts/deploy-member.sh
           test -f /home/um/myApp-Infra/scripts/check-app-flow.sh
 
       - name: Build member jar
         run: |
+          set -Eeuo pipefail
+
           chmod +x mvnw
           ./mvnw clean package -DskipTests
 
       - name: Build member Docker image
         run: |
+          set -Eeuo pipefail
+
           IMAGE_TAG="${GITHUB_SHA}"
-          docker build -t "myapp-member:${IMAGE_TAG}" .
-          docker tag "myapp-member:${IMAGE_TAG}" myapp-member:latest
+
+          docker build \
+            -t "myapp-member:${IMAGE_TAG}" \
+            .
+
+          docker tag \
+            "myapp-member:${IMAGE_TAG}" \
+            myapp-member:latest
 
       - name: Deploy member with new image
         run: |
+          set -Eeuo pipefail
+
           IMAGE_TAG="${GITHUB_SHA}"
+
           cd /home/um/myApp-Infra
           chmod +x scripts/*.sh
-          IMAGE_OVERRIDE="myapp-member:${IMAGE_TAG}" ./scripts/deploy-member.sh
+
+          IMAGE_OVERRIDE="myapp-member:${IMAGE_TAG}" \
+            ./scripts/deploy-member.sh
 
       - name: Run application flow regression check
         run: |
+          set -Eeuo pipefail
+
           cd /home/um/myApp-Infra
+
           git pull --ff-only origin main
           chmod +x scripts/*.sh
           ./scripts/check-app-flow.sh

@@ -34,3 +34,7 @@ build/
 
 ### Local secrets ###
 src/main/resources/application-secret.yaml
+
+/myapp_member_aws_actions_key
+/myapp_member_aws_actions_key.pub
+/aws_member_deploy_known_hosts
