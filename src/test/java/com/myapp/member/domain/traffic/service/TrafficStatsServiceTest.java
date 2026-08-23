@@ -148,6 +148,110 @@ class TrafficStatsServiceTest {
         );
     }
 
+    @Test
+    void readAdminTrafficIncludesRotatedAccessLogs() throws Exception {
+        String browserUserAgent =
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        + "AppleWebKit/537.36 "
+                        + "Chrome/151.0.0.0 Safari/537.36";
+
+        Files.writeString(
+                tempDir.resolve("access-history.log"),
+                logLine(
+                        "203.0.113.10",
+                        "23/Aug/2026:12:00:00 +0000",
+                        "GET / HTTP/1.1",
+                        200,
+                        browserUserAgent
+                ) + "\n",
+                StandardCharsets.UTF_8
+        );
+
+        Files.writeString(
+                tempDir.resolve("access.log.2"),
+                logLine(
+                        "203.0.113.10",
+                        "23/Aug/2026:12:00:01 +0000",
+                        "GET /assets/app.js HTTP/1.1",
+                        200,
+                        browserUserAgent
+                ) + "\n",
+                StandardCharsets.UTF_8
+        );
+
+        Files.writeString(
+                tempDir.resolve("access.log.1"),
+                logLine(
+                        "203.0.113.10",
+                        "23/Aug/2026:12:00:02 +0000",
+                        "GET /lv1 HTTP/1.1",
+                        200,
+                        browserUserAgent
+                ) + "\n",
+                StandardCharsets.UTF_8
+        );
+
+        Files.writeString(
+                tempDir.resolve("access.log"),
+                logLine(
+                        "192.0.2.30",
+                        "23/Aug/2026:12:00:03 +0000",
+                        "GET / HTTP/1.1",
+                        200,
+                        "curl/8.5.0"
+                ) + "\n",
+                StandardCharsets.UTF_8
+        );
+
+        Files.writeString(
+                tempDir.resolve("access.log.1.gz"),
+                logLine(
+                        "198.51.100.99",
+                        "23/Aug/2026:12:00:04 +0000",
+                        "GET /lv30 HTTP/1.1",
+                        200,
+                        browserUserAgent
+                ) + "\n",
+                StandardCharsets.UTF_8
+        );
+
+        TrafficStatsService service =
+                new TrafficStatsService(tempDir.toString());
+
+        AdminTrafficResponseDTO response =
+                service.readAdminTraffic();
+
+        assertEquals(4L, response.totalRequests());
+        assertEquals(2L, response.externalIpCount());
+        assertEquals(1L, response.browserLikeIpCount());
+        assertEquals(1L, response.estimatedVisitorCount());
+
+        assertEquals(1L, response.scannerRequestCount());
+        assertEquals(1L, response.scannerIpCount());
+
+        assertEquals(1, response.dailyTraffic().size());
+        assertEquals(
+                4L,
+                response.dailyTraffic().get(0).requests()
+        );
+        assertEquals(
+                1L,
+                response.dailyTraffic().get(0).estimatedVisitors()
+        );
+
+        assertEquals(2, response.popularPages().size());
+
+        assertEquals(
+                "/",
+                response.popularPages().get(0).path()
+        );
+
+        assertEquals(
+                "/lv1",
+                response.popularPages().get(1).path()
+        );
+    }
+
     private String logLine(
             String ip,
             String timestamp,

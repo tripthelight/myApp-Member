@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 @Service
 public class TrafficStatsService {
@@ -51,10 +52,14 @@ public class TrafficStatsService {
             Pattern.CASE_INSENSITIVE
     );
 
-    private static final List<String> LOG_FILE_NAMES = List.of(
-            "access-history.log",
-            "access.log"
-    );
+    private static final Pattern ROTATED_ACCESS_LOG_PATTERN =
+            Pattern.compile("^access\\.log\\.(\\d+)$");
+
+    private static final String HISTORY_LOG_FILE_NAME =
+            "access-history.log";
+
+    private static final String CURRENT_LOG_FILE_NAME =
+            "access.log";
 
     private static final List<String> SCANNER_PATH_PATTERNS = List.of(
             "/.env",
@@ -331,17 +336,82 @@ public class TrafficStatsService {
 
         List<LogEntry> entries = new ArrayList<>();
 
-        for (String fileName : LOG_FILE_NAMES) {
-            Path logFile = logDirectory.resolve(fileName);
-
-            if (!Files.isRegularFile(logFile)) {
-                continue;
-            }
-
+        for (Path logFile : resolveLogFiles()) {
             readLogFile(logFile, entries);
         }
 
         return entries;
+    }
+
+    private List<Path> resolveLogFiles() {
+        List<Path> logFiles = new ArrayList<>();
+
+        Path historyLog =
+                logDirectory.resolve(HISTORY_LOG_FILE_NAME);
+
+        if (Files.isRegularFile(historyLog)) {
+            logFiles.add(historyLog);
+        }
+
+        List<Path> rotatedLogs = findRotatedAccessLogs();
+
+        logFiles.addAll(rotatedLogs);
+
+        Path currentLog =
+                logDirectory.resolve(CURRENT_LOG_FILE_NAME);
+
+        if (Files.isRegularFile(currentLog)) {
+            logFiles.add(currentLog);
+        }
+
+        return logFiles;
+    }
+
+    private List<Path> findRotatedAccessLogs() {
+        try (Stream<Path> paths = Files.list(logDirectory)) {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .filter(this::isRotatedAccessLog)
+                    .sorted(
+                            Comparator
+                                    .comparingInt(this::rotatedLogIndex)
+                                    .reversed()
+                    )
+                    .toList();
+        } catch (IOException e) {
+            throw new IllegalStateException(
+                    "Failed to list Nginx access log directory: "
+                            + logDirectory,
+                    e
+            );
+        }
+    }
+
+    private boolean isRotatedAccessLog(Path path) {
+        String fileName =
+                path.getFileName().toString();
+
+        return ROTATED_ACCESS_LOG_PATTERN
+                .matcher(fileName)
+                .matches();
+    }
+
+    private int rotatedLogIndex(Path path) {
+        String fileName =
+                path.getFileName().toString();
+
+        Matcher matcher =
+                ROTATED_ACCESS_LOG_PATTERN.matcher(fileName);
+
+        if (!matcher.matches()) {
+            return 0;
+        }
+
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 
     private void readLogFile(
